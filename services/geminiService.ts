@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -34,9 +33,14 @@ const generateContentWithImage = async (parts: any[]) => {
 export const generateVisualization = async (
   productImageBase64: string,
   productImageMimeType: string,
-  medium: string
+  medium: string,
+  keywords: string
 ): Promise<string> => {
-  const prompt = `Create a high-quality, professional marketing photo of a white ${medium.toLowerCase()} featuring the provided product image prominently and clearly on it. The background should be clean, minimalist, and complementary to the product. The lighting should be bright and professional.`;
+  let prompt = `First, identify the main subject in the provided product image and completely remove its background. Then, create a high-quality, professional marketing photo of a white ${medium.toLowerCase()} featuring this isolated subject printed prominently and clearly on it. The background for the final T-shirt photo should be clean, minimalist, and complementary to the subject. The lighting should be bright and professional.`;
+
+  if (keywords) {
+    prompt += ` The following keywords should guide the style and context of the T-shirt photo: ${keywords}.`;
+  }
 
   const parts = [
     { text: prompt },

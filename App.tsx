@@ -1,21 +1,44 @@
-
-import React, { useState, useCallback } from 'react';
-import type { MarketingMedium } from './types';
+import React, { useState, useCallback, useEffect } from 'react';
 import { generateVisualization, editImage } from './services/geminiService';
 import ImageUploader from './components/ImageUploader';
-import MediumSelector from './components/MediumSelector';
 import ResultDisplay from './components/ResultDisplay';
-import { LogoIcon } from './components/Icons';
+import HistoryGallery from './components/HistoryGallery';
+import { LogoIcon, RefreshIcon } from './components/Icons';
 
 const App: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<File | null>(null);
   const [originalImageBase64, setOriginalImageBase64] = useState<string | null>(null);
-  const [selectedMedium, setSelectedMedium] = useState<MarketingMedium>('T-Shirt');
+  const [keywords, setKeywords] = useState<string>('');
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [editPrompt, setEditPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [resetCounter, setResetCounter] = useState(0);
+
+  useEffect(() => {
+    try {
+      const savedHistory = localStorage.getItem('visualizationHistory');
+      if (savedHistory) {
+        setHistory(JSON.parse(savedHistory));
+      }
+    } catch (error) {
+      console.error("Failed to load history from localStorage", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (history.length > 0) {
+        localStorage.setItem('visualizationHistory', JSON.stringify(history));
+      } else {
+        localStorage.removeItem('visualizationHistory');
+      }
+    } catch (error) {
+      console.error("Failed to save history to localStorage", error);
+    }
+  }, [history]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -36,8 +59,8 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = useCallback(async () => {
-    if (!originalImageBase64 || !originalImage || !selectedMedium) {
-      setError('Please upload an image and select a medium first.');
+    if (!originalImageBase64 || !originalImage) {
+      setError('Please upload a design first.');
       return;
     }
 
@@ -48,18 +71,20 @@ const App: React.FC = () => {
 
     try {
       const base64Data = originalImageBase64.split(',')[1];
-      const result = await generateVisualization(base64Data, originalImage.type, selectedMedium);
-      setGeneratedImage(`data:image/png;base64,${result}`);
+      const result = await generateVisualization(base64Data, originalImage.type, 'T-Shirt', keywords);
+      const imageUrl = `data:image/png;base64,${result}`;
+      setGeneratedImage(imageUrl);
+      setHistory(prev => [imageUrl, ...prev.filter(item => item !== imageUrl)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred during visualization.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [originalImageBase64, originalImage, selectedMedium]);
+  }, [originalImageBase64, originalImage, keywords]);
 
   const handleEdit = useCallback(async () => {
-    const imageToEdit = generatedImage;
+    const imageToEdit = editedImage || generatedImage;
     if (!imageToEdit || !editPrompt) {
       setError('Please generate an image and enter an edit prompt first.');
       return;
@@ -67,19 +92,44 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    setEditedImage(null);
 
     try {
       const base64Data = imageToEdit.split(',')[1];
       const result = await editImage(base64Data, 'image/png', editPrompt);
-      setEditedImage(`data:image/png;base64,${result}`);
+      const imageUrl = `data:image/png;base64,${result}`;
+      setEditedImage(imageUrl);
+      setHistory(prev => [imageUrl, ...prev.filter(item => item !== imageUrl)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred during editing.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [generatedImage, editPrompt]);
+  }, [generatedImage, editedImage, editPrompt]);
+
+  const handleHistorySelect = (image: string) => {
+    setGeneratedImage(image);
+    setEditedImage(null);
+    setEditPrompt('');
+    setError(null);
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm('Are you sure you want to clear your entire visualization history? This cannot be undone.')) {
+      setHistory([]);
+    }
+  };
+
+  const handleStartNew = () => {
+    setOriginalImage(null);
+    setOriginalImageBase64(null);
+    setKeywords('');
+    setGeneratedImage(null);
+    setEditedImage(null);
+    setEditPrompt('');
+    setError(null);
+    setResetCounter(c => c + 1);
+  };
 
   const displayImage = editedImage || generatedImage;
 
@@ -89,8 +139,8 @@ const App: React.FC = () => {
         <header className="flex items-center space-x-3 mb-8">
           <LogoIcon className="h-10 w-10 text-primary" />
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">AI Product Visualizer</h1>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">Bring your product ideas to life in seconds.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">AI T-shirt Styler</h1>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">Create stunning apparel mockups in seconds.</p>
           </div>
         </header>
 
@@ -98,19 +148,37 @@ const App: React.FC = () => {
           <div className="lg:col-span-4 xl:col-span-3">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg space-y-6">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">1. Upload Product Image</h2>
-                <ImageUploader onImageSelect={handleImageUpload} />
+                 <div className="flex justify-between items-center mb-3">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">1. Upload Design</h2>
+                    <button
+                        onClick={handleStartNew}
+                        className="text-sm font-medium text-primary hover:text-primary-focus dark:hover:text-blue-400 flex items-center transition-colors"
+                        title="Start a new session"
+                    >
+                        <RefreshIcon className="w-4 h-4 mr-1.5" />
+                        Start New
+                    </button>
+                </div>
+                <ImageUploader key={resetCounter} onImageSelect={handleImageUpload} />
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">2. Choose Medium</h2>
-                <MediumSelector selectedMedium={selectedMedium} onSelect={setSelectedMedium} />
+               <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                  2. Style Keywords <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(Optional)</span>
+                </h2>
+                <input
+                  type="text"
+                  value={keywords}
+                  onChange={(e) => setKeywords(e.target.value)}
+                  placeholder="e.g., on a person, flat lay, urban"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                />
               </div>
                <button
                 onClick={handleGenerate}
                 disabled={!originalImage || isLoading}
                 className="w-full bg-primary hover:bg-primary-focus text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center shadow-md hover:shadow-lg disabled:shadow-none"
               >
-                {isLoading && !displayImage ? 'Visualizing...' : 'Visualize Product'}
+                {isLoading && !displayImage ? 'Styling T-shirt...' : 'Style Your T-shirt'}
               </button>
             </div>
           </div>
@@ -124,6 +192,11 @@ const App: React.FC = () => {
               onEditPromptChange={setEditPrompt}
               onEditSubmit={handleEdit}
               hasGeneratedImage={!!generatedImage}
+            />
+            <HistoryGallery
+              images={history}
+              onSelectImage={handleHistorySelect}
+              onClearHistory={handleClearHistory}
             />
           </div>
         </main>

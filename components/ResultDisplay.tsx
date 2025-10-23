@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { SparklesIcon } from './Icons';
+import { SparklesIcon, DownloadIcon, ShareIcon } from './Icons';
 
 interface ResultDisplayProps {
   imageSrc: string | null;
@@ -47,18 +47,62 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     }
   };
 
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
+
+  const handleDownload = () => {
+    if (!imageSrc) return;
+    const link = document.createElement('a');
+    link.href = imageSrc;
+    link.download = 'product-visualization.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleShare = async () => {
+    if (!imageSrc || !canShare) return;
+    try {
+      const response = await fetch(imageSrc);
+      const blob = await response.blob();
+      const file = new File([blob], 'product-visualization.png', { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My AI Product Visualization',
+          text: 'Check out this product mockup I created with the AI Product Visualizer!',
+        });
+      } else {
+        alert("Your browser doesn't support sharing files.");
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Error sharing:', err);
+        alert('An error occurred while trying to share the image.');
+      }
+    }
+  };
+
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg h-full flex flex-col">
       <div className="aspect-w-16 aspect-h-9 w-full rounded-2xl overflow-hidden flex-grow mb-6">
         <div className="w-full h-full flex items-center justify-center">
-          {isLoading ? (
+          {isLoading && !imageSrc ? ( // Only show loading skeleton on initial load
             <LoadingSkeleton />
           ) : error ? (
             <div className="w-full h-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl flex items-center justify-center p-4">
               <p className="text-red-600 dark:text-red-300 text-center font-medium">{error}</p>
             </div>
           ) : imageSrc ? (
-            <img src={imageSrc} alt="Generated result" className="object-contain w-full h-full" />
+            <div className="relative w-full h-full">
+              <img src={imageSrc} alt="Generated result" className="object-contain w-full h-full" />
+              {isLoading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-2xl">
+                  <SparklesIcon className="w-12 h-12 text-white animate-spin" style={{ animationDuration: '3s' }} />
+                </div>
+              )}
+            </div>
           ) : (
             <Placeholder />
           )}
@@ -67,7 +111,25 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
       
       {hasGeneratedImage && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">3. Edit with a prompt</h3>
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <button 
+              onClick={handleDownload} 
+              className="flex items-center justify-center w-full px-4 py-3 font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors"
+            >
+              <DownloadIcon className="w-5 h-5 mr-2" />
+              Download
+            </button>
+            {canShare && (
+              <button 
+                onClick={handleShare} 
+                className="flex items-center justify-center w-full px-4 py-3 font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors"
+              >
+                <ShareIcon className="w-5 h-5 mr-2" />
+                Share
+              </button>
+            )}
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Edit with a prompt</h3>
           <div className="relative">
             <input
               type="text"
