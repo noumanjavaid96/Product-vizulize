@@ -1,0 +1,5 @@
+{
+  "name": "AI Product Visualizer",
+  "description": "Upload a product image and visualize it in various marketing mediums like coffee mugs, billboards, and t-shirts. Use text prompts to further edit and refine the generated visuals with generative AI.",
+  "requestFramePermissions": []
+}
