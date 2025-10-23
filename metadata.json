@@ -1,5 +1,7 @@
 {
-  "name": "AI T-shirt Styler",
-  "description": "Upload an image of a product or design, and our AI will remove the background and visualize it on a t-shirt. Use text prompts to further edit and refine your apparel mockups.",
-  "requestFramePermissions": []
+  "name": "AI Product Visualizer",
+  "description": "Upload a product design and visualize it on various marketing materials like t-shirts, mugs, and billboards. Then, talk to our AI assistant for ideas and edits.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
